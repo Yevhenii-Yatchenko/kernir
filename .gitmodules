@@ -1,0 +1,9 @@
+[submodule "workspace/FAST-LIVO2"]
+	path = workspace/FAST-LIVO2
+	url = https://github.com/hku-mars/FAST-LIVO2.git
+[submodule "workspace/gazebo-classic"]
+	path = workspace/gazebo-classic
+	url = https://github.com/gazebosim/gazebo-classic.git
+[submodule "workspace/PX4-SITL_gazebo-classic"]
+	path = workspace/PX4-SITL_gazebo-classic
+	url = https://github.com/PX4/PX4-SITL_gazebo-classic.git
