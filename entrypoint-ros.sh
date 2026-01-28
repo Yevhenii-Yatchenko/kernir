@@ -8,8 +8,9 @@ source /opt/ros/noetic/setup.bash
 source /usr/share/gazebo/setup.bash
 
 # Append project paths to Gazebo
-export GAZEBO_MODEL_PATH=/root/catkin_ws/src/PX4-SITL_gazebo-classic/models:$GAZEBO_MODEL_PATH
-export GAZEBO_RESOURCE_PATH=/root/catkin_ws/src/PX4-SITL_gazebo-classic:$GAZEBO_RESOURCE_PATH
+export GAZEBO_MODEL_PATH=/root/catkin_ws/src/ardupilot_gazebo/models:/root/catkin_ws/src/ardupilot_gazebo/models_gazebo:/root/catkin_ws/src/PX4-SITL_gazebo-classic/models:$GAZEBO_MODEL_PATH
+export GAZEBO_RESOURCE_PATH=/root/catkin_ws/src/ardupilot_gazebo:/root/catkin_ws/src/PX4-SITL_gazebo-classic:$GAZEBO_RESOURCE_PATH
+export GAZEBO_PLUGIN_PATH=/root/catkin_ws/src/ardupilot_gazebo/build:$GAZEBO_PLUGIN_PATH
 
 # Default world
 WORLD=${GAZEBO_WORLD:-/root/catkin_ws/src/PX4-SITL_gazebo-classic/worlds/baylands.world}
@@ -22,7 +23,7 @@ elif [ "$1" = "gazebo" ]; then
     shift
     WORLD=${1:-$WORLD}
     echo "Starting Gazebo with world: $WORLD"
-    exec gazebo $WORLD
+    exec roslaunch gazebo_ros empty_world.launch world_name:=$WORLD verbose:=true
 # Default: just run whatever command was passed
 else
     exec "$@"

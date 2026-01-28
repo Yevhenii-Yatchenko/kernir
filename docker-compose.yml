@@ -1,6 +1,8 @@
 services:
   ros-noetic:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.ros
     image: ros-noetic-custom
     container_name: ros_noetic
     stdin_open: true
@@ -20,7 +22,7 @@ services:
       - __GLX_VENDOR_LIBRARY_NAME=nvidia
       - __VK_LAYER_NV_optimus=NVIDIA_only
       # Default Gazebo world
-      - GAZEBO_WORLD=/root/catkin_ws/src/PX4-SITL_gazebo-classic/worlds/baylands.world
+      - GAZEBO_WORLD=/root/catkin_ws/src/ardupilot_gazebo/worlds/baylands_rover.world
     volumes:
       # Share X11 socket for GUI (Gazebo, RViz)
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
@@ -31,7 +33,7 @@ services:
       # Persist Gazebo cache (faster startup after first run)
       - ./docker_data/.gazebo:/root/.gazebo
       # Custom entrypoint
-      - ./entrypoint.sh:/entrypoint.sh:ro
+      - ./entrypoint-ros.sh:/entrypoint.sh:ro
     # GPU access
     deploy:
       resources:
@@ -42,3 +44,25 @@ services:
               capabilities: [gpu]
     entrypoint: ["/entrypoint.sh"]
     command: ["gazebo"]
+
+  ardupilot:
+    build:
+      context: .
+      dockerfile: Dockerfile.ardupilot
+    image: ardupilot-sitl
+    container_name: ardupilot_sitl
+    stdin_open: true
+    tty: true
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      # ArduPilot settings
+      - ARDUPILOT_VEHICLE=Rover
+      - ARDUPILOT_FRAME=gazebo-rover
+      - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
+    volumes:
+      # Share X11 socket for GUI (MAVProxy map, console)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - ros-noetic
