@@ -11,10 +11,9 @@ else
 fi
 
 case "$1" in
-    start)
-        # Grant X11 access for GUI apps (Gazebo, MAVProxy)
+    up)
+        # Build images and create containers
         xhost +local:docker
-        # Start Gazebo first, then ArduPilot headless
         ARDUPILOT_HEADLESS=1 $COMPOSE_CMD up -d --build
         echo ""
         echo "Gazebo + ArduPilot SITL starting..."
@@ -24,16 +23,36 @@ case "$1" in
         echo "  ./docker.sh ardupilot   - Restart ArduPilot with interactive console"
         echo "  ./docker.sh shell       - Open Gazebo container shell"
         ;;
-    stop)
+    down)
+        # Stop and remove containers
         $COMPOSE_CMD down
-        echo "All containers stopped."
+        echo "All containers stopped and removed."
+        ;;
+    stop)
+        # Pause containers (keep state)
+        $COMPOSE_CMD stop
+        echo "Containers paused. Use './docker.sh start' to resume."
+        ;;
+    start)
+        # Resume paused containers
+        xhost +local:docker
+        $COMPOSE_CMD start
+        echo "Containers resumed."
         ;;
     restart)
+        # Restart without rebuild
+        $COMPOSE_CMD stop
+        xhost +local:docker
+        $COMPOSE_CMD start
+        echo "Containers restarted."
+        ;;
+    rebuild)
+        # Full rebuild from scratch
         $COMPOSE_CMD down
         xhost +local:docker
         ARDUPILOT_HEADLESS=1 $COMPOSE_CMD up -d --build
         echo ""
-        echo "Gazebo + ArduPilot SITL restarting..."
+        echo "Containers rebuilt and started."
         ;;
     ardupilot)
         # Run ArduPilot interactively (with MAVProxy console)
@@ -71,14 +90,24 @@ case "$1" in
         $COMPOSE_CMD ps
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|ardupilot|shell|logs|status}"
+        echo "Usage: $0 {up|down|stop|start|restart|rebuild|ardupilot|shell|logs|status}"
         echo ""
-        echo "  start           - Start Gazebo + ArduPilot (headless)"
-        echo "  stop            - Stop all containers"
-        echo "  restart         - Restart all containers"
+        echo "Lifecycle (destructive):"
+        echo "  up              - Build images and create containers"
+        echo "  down            - Stop and remove containers"
+        echo "  rebuild         - Full rebuild from scratch (down + up)"
+        echo ""
+        echo "Lifecycle (preserves state):"
+        echo "  stop            - Pause containers (keep state)"
+        echo "  start           - Resume paused containers"
+        echo "  restart         - Restart without rebuild"
+        echo ""
+        echo "Interactive:"
         echo "  ardupilot       - Run ArduPilot with interactive MAVProxy console"
         echo "  shell           - Open bash shell in Gazebo container"
         echo "  shell-ardupilot - Open bash shell in ArduPilot container"
+        echo ""
+        echo "Monitoring:"
         echo "  logs            - Show all logs"
         echo "  logs-gazebo     - Show Gazebo logs only"
         echo "  logs-ardupilot  - Show ArduPilot logs only"
