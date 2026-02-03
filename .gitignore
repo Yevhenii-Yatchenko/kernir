@@ -3,3 +3,9 @@ task.md
 .gazebo
 
 QGroundControl.AppImage
+
+# FAST-LIVO cached repos (cloned at runtime)
+docker_data/fast-livo/repos/
+
+# Bash history files
+docker_data/**/.bash_history

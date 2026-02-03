@@ -1,0 +1,53 @@
+FROM ros:noetic-ros-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install FAST-LIVO2 dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    # Catkin build tools
+    python3-catkin-tools \
+    ros-noetic-catkin \
+    # ROS packages
+    ros-noetic-pcl-ros \
+    ros-noetic-cv-bridge \
+    ros-noetic-image-transport \
+    ros-noetic-tf \
+    ros-noetic-rviz \
+    ros-noetic-eigen-conversions \
+    ros-noetic-compressed-image-transport \
+    # Libraries
+    libeigen3-dev \
+    libpcl-dev \
+    libopencv-dev \
+    libfmt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Sophus (specific commit required by FAST-LIVO2, with GCC 9+ compatibility fix)
+RUN git clone https://github.com/strasdat/Sophus.git /tmp/Sophus && \
+    cd /tmp/Sophus && \
+    git checkout a621ff && \
+    # Fix for GCC 9+ compatibility (std::complex real/imag not assignable)
+    sed -i 's/unit_complex_.real() = 1.;/unit_complex_ = std::complex<double>(1., 0.);/' sophus/so2.cpp && \
+    sed -i 's/unit_complex_.imag() = 0.;//' sophus/so2.cpp && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/Sophus && \
+    # Create CMake config file for Sophus (old version doesn't provide one)
+    mkdir -p /usr/local/lib/cmake/Sophus && \
+    echo 'set(Sophus_INCLUDE_DIRS "/usr/local/include")' > /usr/local/lib/cmake/Sophus/SophusConfig.cmake && \
+    echo 'set(Sophus_LIBRARIES "/usr/local/lib/libSophus.so")' >> /usr/local/lib/cmake/Sophus/SophusConfig.cmake && \
+    echo 'set(Sophus_FOUND TRUE)' >> /usr/local/lib/cmake/Sophus/SophusConfig.cmake
+
+# Create catkin workspace and cache directories
+RUN mkdir -p /root/catkin_ws/src /cache/repos
+
+WORKDIR /root/catkin_ws
+
+# Entrypoint mounted from docker_data/fast-livo/entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]

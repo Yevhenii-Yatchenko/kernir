@@ -73,6 +73,16 @@ case "$1" in
         # Open bash shell in ArduPilot container
         $COMPOSE_CMD exec ardupilot bash
         ;;
+    shell-fastlivo)
+        # Open bash shell in FAST-LIVO2 container
+        $COMPOSE_CMD exec fast-livo /entrypoint.sh bash
+        ;;
+    fastlivo)
+        # Start FAST-LIVO2 container
+        xhost +local:docker
+        $COMPOSE_CMD up -d fast-livo
+        echo "FAST-LIVO2 container started. Use './docker.sh shell-fastlivo' to access."
+        ;;
     logs)
         # Show all container logs
         $COMPOSE_CMD logs -f
@@ -106,6 +116,11 @@ case "$1" in
         echo "  ardupilot       - Run ArduPilot with interactive MAVProxy console"
         echo "  shell           - Open bash shell in Gazebo container"
         echo "  shell-ardupilot - Open bash shell in ArduPilot container"
+        echo "  shell-fastlivo  - Open bash shell in FAST-LIVO2 container"
+        echo ""
+        echo "FAST-LIVO2:"
+        echo "  fastlivo        - Start FAST-LIVO2 container"
+        echo "  build-fastlivo  - Build FAST-LIVO2 container"
         echo ""
         echo "Monitoring:"
         echo "  logs            - Show all logs"

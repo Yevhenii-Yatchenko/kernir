@@ -76,6 +76,35 @@ services:
     depends_on:
       - ros-gazebo
 
+  fast-livo:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastlivo
+    image: fast-livo2
+    container_name: fast_livo
+    stdin_open: true
+    tty: true
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_MASTER_URI=http://localhost:11311
+    volumes:
+      # Share X11 socket for GUI (RViz)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Entrypoint script
+      - ./docker_data/fast-livo/entrypoint.sh:/entrypoint.sh:ro
+      # Cache repos (cloned on first run, persisted across rebuilds)
+      - ./docker_data/fast-livo/repos:/cache/repos
+      # Custom configs (optional overrides)
+      - ./docker_data/fast-livo/config:/config:ro
+      # Persist bash history
+      - ./docker_data/fast-livo/.bash_history:/root/.bash_history
+    entrypoint: ["/entrypoint.sh"]
+    command: ["roslaunch", "fast_livo", "mapping_gazebo_vlp16.launch"]
+    depends_on:
+      - ros-gazebo
+
   qgroundcontrol:
     build:
       context: .
