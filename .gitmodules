@@ -4,6 +4,3 @@
 [submodule "workspace/gazebo-classic"]
 	path = workspace/gazebo-classic
 	url = https://github.com/gazebosim/gazebo-classic.git
-[submodule "workspace/PX4-SITL_gazebo-classic"]
-	path = workspace/PX4-SITL_gazebo-classic
-	url = https://github.com/PX4/PX4-SITL_gazebo-classic.git

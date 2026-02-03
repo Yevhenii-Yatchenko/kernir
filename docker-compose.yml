@@ -1,10 +1,10 @@
 services:
-  ros-noetic:
+  ros-gazebo:
     build:
       context: .
-      dockerfile: Dockerfile.ros
-    image: ros-noetic-custom
-    container_name: ros_noetic
+      dockerfile: Dockerfile.gazebo
+    image: ros-gazebo
+    container_name: ros_gazebo
     stdin_open: true
     tty: true
     network_mode: host
@@ -21,19 +21,19 @@ services:
       - __NV_PRIME_RENDER_OFFLOAD=1
       - __GLX_VENDOR_LIBRARY_NAME=nvidia
       - __VK_LAYER_NV_optimus=NVIDIA_only
-      # Default Gazebo world
-      - GAZEBO_WORLD=/root/catkin_ws/src/ardupilot_gazebo/worlds/baylands_rover.world
     volumes:
       # Share X11 socket for GUI (Gazebo, RViz)
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # Mount your workspace
-      - ./workspace:/root/catkin_ws/src
+      # Mount Gazebo simulation files
+      - ./docker_data/ros_gazebo/ardupilot_gazebo:/root/catkin_ws/src/ardupilot_gazebo
+      - ./docker_data/ros_gazebo/PX4-SITL_gazebo-classic:/root/catkin_ws/src/PX4-SITL_gazebo-classic
+      - ./docker_data/ros_gazebo/velodyne_simulator:/root/catkin_ws/src/velodyne_simulator
       # Persist bash history
-      - ./docker_data/.bash_history:/root/.bash_history
+      - ./docker_data/ros_gazebo/.bash_history:/root/.bash_history
       # Persist Gazebo cache (faster startup after first run)
-      - ./docker_data/.gazebo:/root/.gazebo
+      - ./docker_data/ros_gazebo/.gazebo:/root/.gazebo
       # Custom entrypoint
-      - ./entrypoint-ros.sh:/entrypoint.sh:ro
+      - ./docker_data/ros_gazebo/entrypoint-gazebo.sh:/entrypoint.sh:ro
     # GPU access
     deploy:
       resources:
@@ -45,24 +45,24 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: ["gazebo"]
 
-  ardupilot:
-    build:
-      context: .
-      dockerfile: Dockerfile.ardupilot
-    image: ardupilot-sitl
-    container_name: ardupilot_sitl
-    stdin_open: true
-    tty: true
-    network_mode: host
-    environment:
-      - DISPLAY=${DISPLAY}
-      - QT_X11_NO_MITSHM=1
-      # ArduPilot settings
-      - ARDUPILOT_VEHICLE=Rover
-      - ARDUPILOT_FRAME=gazebo-rover
-      - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
-    volumes:
-      # Share X11 socket for GUI (MAVProxy map, console)
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    depends_on:
-      - ros-noetic
+  # ardupilot:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.ardupilot
+  #   image: ardupilot-sitl
+  #   container_name: ardupilot_sitl
+  #   stdin_open: true
+  #   tty: true
+  #   network_mode: host
+  #   environment:
+  #     - DISPLAY=${DISPLAY}
+  #     - QT_X11_NO_MITSHM=1
+  #     # ArduPilot settings
+  #     - ARDUPILOT_VEHICLE=Rover
+  #     - ARDUPILOT_FRAME=gazebo-rover
+  #     - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
+  #   volumes:
+  #     # Share X11 socket for GUI (MAVProxy map, console)
+  #     - /tmp/.X11-unix:/tmp/.X11-unix:rw
+  #   depends_on:
+  #     - ros-gazebo

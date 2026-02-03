@@ -67,7 +67,7 @@ case "$1" in
         ;;
     shell)
         # Open bash shell in Gazebo container
-        $COMPOSE_CMD exec ros-noetic /entrypoint.sh bash
+        docker exec -it ros_gazebo bash
         ;;
     shell-ardupilot)
         # Open bash shell in ArduPilot container
@@ -79,7 +79,7 @@ case "$1" in
         ;;
     logs-gazebo)
         # Show Gazebo logs only
-        $COMPOSE_CMD logs -f ros-noetic
+        $COMPOSE_CMD logs -f ros-gazebo
         ;;
     logs-ardupilot)
         # Show ArduPilot logs only
