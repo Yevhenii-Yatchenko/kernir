@@ -24,10 +24,9 @@ services:
     volumes:
       # Share X11 socket for GUI (Gazebo, RViz)
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # Mount Gazebo simulation files
-      - ./docker_data/ros_gazebo/ardupilot_gazebo:/root/catkin_ws/src/ardupilot_gazebo
-      - ./docker_data/ros_gazebo/PX4-SITL_gazebo-classic:/root/catkin_ws/src/PX4-SITL_gazebo-classic
-      - ./docker_data/ros_gazebo/velodyne_simulator:/root/catkin_ws/src/velodyne_simulator
+      # Custom Gazebo models and worlds
+      - ./docker_data/ros_gazebo/models:/root/gazebo_models:ro
+      - ./docker_data/ros_gazebo/worlds:/root/gazebo_worlds:ro
       # Persist bash history
       - ./docker_data/ros_gazebo/.bash_history:/root/.bash_history
       # Persist Gazebo cache (faster startup after first run)
@@ -45,24 +44,29 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: ["gazebo"]
 
-  # ardupilot:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.ardupilot
-  #   image: ardupilot-sitl
-  #   container_name: ardupilot_sitl
-  #   stdin_open: true
-  #   tty: true
-  #   network_mode: host
-  #   environment:
-  #     - DISPLAY=${DISPLAY}
-  #     - QT_X11_NO_MITSHM=1
-  #     # ArduPilot settings
-  #     - ARDUPILOT_VEHICLE=Rover
-  #     - ARDUPILOT_FRAME=gazebo-rover
-  #     - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
-  #   volumes:
-  #     # Share X11 socket for GUI (MAVProxy map, console)
-  #     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-  #   depends_on:
-  #     - ros-gazebo
+  ardupilot:
+    build:
+      context: .
+      dockerfile: Dockerfile.ardupilot
+    image: ardupilot-sitl
+    container_name: ardupilot_sitl
+    stdin_open: true
+    tty: true
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      # ArduPilot settings
+      - ARDUPILOT_VEHICLE=Rover
+      - ARDUPILOT_FRAME=gazebo-rover
+      - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
+    volumes:
+      # Share X11 socket for GUI (MAVProxy map, console)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Custom entrypoint (mounted like ros_gazebo)
+      - ./docker_data/ardupilot_sitl/entrypoint-ardupilot.sh:/entrypoint.sh:ro
+      # Persist bash history
+      - ./docker_data/ardupilot_sitl/.bash_history:/root/.bash_history
+    entrypoint: ["/entrypoint.sh"]
+    depends_on:
+      - ros-gazebo

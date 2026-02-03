@@ -48,9 +48,3 @@ ENV VIRTUAL_ENV="/opt/ardupilot-venv"
 # Build Rover SITL
 RUN ./waf configure --board sitl && \
     ./waf build --target bin/ardurover
-
-# Copy entrypoint
-COPY entrypoint-ardupilot.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]

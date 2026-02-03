@@ -1,0 +1,31 @@
+FROM osrf/ros:noetic-desktop-full
+
+# Install additional packages
+RUN apt-get update && apt-get install -y \
+    python3-lxml \
+    psmisc \
+    x11-apps \
+    git \
+    # Build tools for ardupilot_gazebo plugin
+    build-essential \
+    cmake \
+    libgazebo11-dev \
+    # Velodyne LIDAR plugin
+    ros-noetic-velodyne-gazebo-plugins \
+    # Husky robot Gazebo plugin
+    ros-noetic-husky-gazebo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create python symlink for legacy scripts
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# Build ArduPilot Gazebo plugin from source (gazebo11 branch)
+RUN git clone -b gazebo11 --depth 1 https://github.com/ArduPilot/ardupilot_gazebo.git /tmp/ardupilot_gazebo && \
+    cd /tmp/ardupilot_gazebo && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    # Copy plugins to Gazebo plugin path
+    cp *.so /usr/lib/x86_64-linux-gnu/gazebo-11/plugins/ && \
+    # Cleanup
+    rm -rf /tmp/ardupilot_gazebo
