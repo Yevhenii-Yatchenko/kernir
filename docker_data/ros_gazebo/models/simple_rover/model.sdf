@@ -61,7 +61,9 @@
       <child>imu_link</child>
     </joint>
 
-    <!-- Front Left Wheel -->
+    <!-- ============== FRONT DRIVEN WHEELS (tank steer) ============== -->
+
+    <!-- Front Left Wheel (driven by left stick) -->
     <link name="front_left_wheel">
       <pose>0.2 0.25 0 1.5708 0 0</pose>
       <inertial>
@@ -104,15 +106,19 @@
         </material>
       </visual>
     </link>
-    <joint name="front_left_joint" type="revolute">
+    <joint name="front_left_wheel_joint" type="revolute">
       <parent>base_link</parent>
       <child>front_left_wheel</child>
       <axis>
         <xyz>0 0 1</xyz>
+        <dynamics>
+          <damping>1.0</damping>
+          <friction>0.5</friction>
+        </dynamics>
       </axis>
     </joint>
 
-    <!-- Front Right Wheel -->
+    <!-- Front Right Wheel (driven by right stick) -->
     <link name="front_right_wheel">
       <pose>0.2 -0.25 0 1.5708 0 0</pose>
       <inertial>
@@ -155,15 +161,21 @@
         </material>
       </visual>
     </link>
-    <joint name="front_right_joint" type="revolute">
+    <joint name="front_right_wheel_joint" type="revolute">
       <parent>base_link</parent>
       <child>front_right_wheel</child>
       <axis>
         <xyz>0 0 1</xyz>
+        <dynamics>
+          <damping>1.0</damping>
+          <friction>0.5</friction>
+        </dynamics>
       </axis>
     </joint>
 
-    <!-- Back Left Wheel -->
+    <!-- ============== REAR WHEELS (free-spinning, not driven) ============== -->
+
+    <!-- Back Left Wheel (free-spinning) -->
     <link name="back_left_wheel">
       <pose>-0.2 0.25 0 1.5708 0 0</pose>
       <inertial>
@@ -206,15 +218,19 @@
         </material>
       </visual>
     </link>
-    <joint name="back_left_joint" type="revolute">
+    <joint name="back_left_wheel_joint" type="revolute">
       <parent>base_link</parent>
       <child>back_left_wheel</child>
       <axis>
         <xyz>0 0 1</xyz>
+        <dynamics>
+          <damping>1.0</damping>
+          <friction>0.5</friction>
+        </dynamics>
       </axis>
     </joint>
 
-    <!-- Back Right Wheel -->
+    <!-- Back Right Wheel (free-spinning) -->
     <link name="back_right_wheel">
       <pose>-0.2 -0.25 0 1.5708 0 0</pose>
       <inertial>
@@ -257,15 +273,19 @@
         </material>
       </visual>
     </link>
-    <joint name="back_right_joint" type="revolute">
+    <joint name="back_right_wheel_joint" type="revolute">
       <parent>base_link</parent>
       <child>back_right_wheel</child>
       <axis>
         <xyz>0 0 1</xyz>
+        <dynamics>
+          <damping>1.0</damping>
+          <friction>0.5</friction>
+        </dynamics>
       </axis>
     </joint>
 
-    <!-- ArduPilot Plugin -->
+    <!-- ArduPilot Plugin - 4WD Arcade steering -->
     <plugin name="ardupilot_plugin" filename="libArduPilotPlugin.so">
       <fdm_addr>127.0.0.1</fdm_addr>
       <fdm_port_in>9002</fdm_port_in>
@@ -275,61 +295,66 @@
       <imuName>simple_rover::imu_link::imu_sensor</imuName>
       <connectionTimeoutMaxCount>50</connectionTimeoutMaxCount>
 
-      <!-- Left wheels (channel 0) -->
+      <!-- Front Left Wheel (channel 0 = left side) -->
       <control channel="0">
         <type>VELOCITY</type>
-        <offset>-0.5</offset>
+        <offset>0</offset>
         <p_gain>1</p_gain>
         <i_gain>0</i_gain>
         <d_gain>0</d_gain>
         <i_max>0</i_max>
         <i_min>0</i_min>
-        <cmd_max>10</cmd_max>
-        <cmd_min>-10</cmd_min>
-        <jointName>front_left_joint</jointName>
-        <multiplier>10</multiplier>
-      </control>
-      <control channel="0">
-        <type>VELOCITY</type>
-        <offset>-0.5</offset>
-        <p_gain>1</p_gain>
-        <i_gain>0</i_gain>
-        <d_gain>0</d_gain>
-        <i_max>0</i_max>
-        <i_min>0</i_min>
-        <cmd_max>10</cmd_max>
-        <cmd_min>-10</cmd_min>
-        <jointName>back_left_joint</jointName>
-        <multiplier>10</multiplier>
+        <cmd_max>100</cmd_max>
+        <cmd_min>-100</cmd_min>
+        <jointName>front_left_wheel_joint</jointName>
+        <multiplier>100</multiplier>
       </control>
 
-      <!-- Right wheels (channel 2) -->
+      <!-- Front Right Wheel (channel 2 = right side) -->
       <control channel="2">
         <type>VELOCITY</type>
-        <offset>-0.5</offset>
+        <offset>0</offset>
         <p_gain>1</p_gain>
         <i_gain>0</i_gain>
         <d_gain>0</d_gain>
         <i_max>0</i_max>
         <i_min>0</i_min>
-        <cmd_max>10</cmd_max>
-        <cmd_min>-10</cmd_min>
-        <jointName>front_right_joint</jointName>
-        <multiplier>10</multiplier>
+        <cmd_max>100</cmd_max>
+        <cmd_min>-100</cmd_min>
+        <jointName>front_right_wheel_joint</jointName>
+        <multiplier>100</multiplier>
       </control>
-      <control channel="2">
+
+      <!-- Back Left Wheel (channel 0 = left side, same as front left) -->
+      <control channel="0">
         <type>VELOCITY</type>
-        <offset>-0.5</offset>
+        <offset>0</offset>
         <p_gain>1</p_gain>
         <i_gain>0</i_gain>
         <d_gain>0</d_gain>
         <i_max>0</i_max>
         <i_min>0</i_min>
-        <cmd_max>10</cmd_max>
-        <cmd_min>-10</cmd_min>
-        <jointName>back_right_joint</jointName>
-        <multiplier>10</multiplier>
+        <cmd_max>100</cmd_max>
+        <cmd_min>-100</cmd_min>
+        <jointName>back_left_wheel_joint</jointName>
+        <multiplier>100</multiplier>
       </control>
+
+      <!-- Back Right Wheel (channel 2 = right side, same as front right) -->
+      <control channel="2">
+        <type>VELOCITY</type>
+        <offset>0</offset>
+        <p_gain>1</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <i_max>0</i_max>
+        <i_min>0</i_min>
+        <cmd_max>100</cmd_max>
+        <cmd_min>-100</cmd_min>
+        <jointName>back_right_wheel_joint</jointName>
+        <multiplier>100</multiplier>
+      </control>
+
     </plugin>
 
   </model>

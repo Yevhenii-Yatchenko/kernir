@@ -1,0 +1,35 @@
+# Ackermann Steering Configuration for simple_rover
+# Load with: param load /params/ackermann.parm
+
+# Steering servo (channel 1)
+SERVO1_FUNCTION 26    # Ground steering
+SERVO1_MIN 1000
+SERVO1_MAX 2000
+SERVO1_TRIM 1500
+
+# Throttle servo (channel 3)
+SERVO3_FUNCTION 70    # Throttle
+SERVO3_MIN 1000
+SERVO3_MAX 2000
+SERVO3_TRIM 1500
+
+# Steering configuration
+ACRO_TURN_RATE 60     # Max turn rate deg/s
+ATC_STR_RAT_FF 0.2    # Steering rate feedforward
+ATC_STR_RAT_MAX 60    # Max steering rate
+
+# Speed/Throttle tuning
+ATC_SPEED_P 0.4
+ATC_SPEED_I 0.2
+ATC_SPEED_D 0.0
+CRUISE_SPEED 2.0      # Target cruise speed m/s
+CRUISE_THROTTLE 30    # Throttle % at cruise speed
+
+# Simulation settings
+AHRS_EKF_TYPE 3       # Use EKF3
+EK3_ENABLE 1
+EK3_SRC1_POSXY 0      # None (GPS disabled for indoor sim)
+EK3_SRC1_VELXY 0
+EK3_SRC1_POSZ 1       # Baro
+EK3_SRC1_VELZ 0
+EK3_SRC1_YAW 1        # Compass

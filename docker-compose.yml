@@ -60,6 +60,7 @@ services:
       - ARDUPILOT_VEHICLE=Rover
       - ARDUPILOT_FRAME=gazebo-rover
       - ARDUPILOT_HEADLESS=${ARDUPILOT_HEADLESS:-0}
+      - ARDUPILOT_PARAMS=${ARDUPILOT_PARAMS:-/params/arcade_4wd.parm}
     volumes:
       # Share X11 socket for GUI (MAVProxy map, console)
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
@@ -67,6 +68,10 @@ services:
       - ./docker_data/ardupilot_sitl/entrypoint-ardupilot.sh:/entrypoint.sh:ro
       # Persist bash history
       - ./docker_data/ardupilot_sitl/.bash_history:/root/.bash_history
+      # ArduPilot parameter files
+      - ./docker_data/ardupilot_sitl/params:/params:ro
+      # Persist SITL state (eeprom, logs)
+      - ./docker_data/ardupilot_sitl/sitl_data:/ardupilot/Rover/sitl_data
     entrypoint: ["/entrypoint.sh"]
     depends_on:
       - ros-gazebo

@@ -7,6 +7,7 @@ cd /ardupilot
 VEHICLE=${ARDUPILOT_VEHICLE:-Rover}
 FRAME=${ARDUPILOT_FRAME:-gazebo-rover}
 HEADLESS=${ARDUPILOT_HEADLESS:-0}
+PARAMS=${ARDUPILOT_PARAMS:-}
 
 # Build command arguments
 ARGS="-v $VEHICLE -f $FRAME"
@@ -14,6 +15,12 @@ ARGS="-v $VEHICLE -f $FRAME"
 # Add console if not headless
 if [ "$HEADLESS" = "0" ]; then
     ARGS="$ARGS --console"
+fi
+
+# Add parameter file if specified
+if [ -n "$PARAMS" ] && [ -f "$PARAMS" ]; then
+    ARGS="$ARGS --add-param-file=$PARAMS"
+    echo "  Params: $PARAMS"
 fi
 
 # Add any extra arguments passed to the container
