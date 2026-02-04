@@ -1,0 +1,827 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ROS2 PointCloud2 Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #eee;
+      font-family: sans-serif;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    /* Make the top label bigger and bolder */
+    #info > div:first-child {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    #viewer {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+<div id="info">
+  <div>ROS2 PointCloud2 Viewer</div>
+  <div id="status">Connecting to rosbridge…</div>
+  <div style="margin-top:6px;">
+    <button id="toggle-accumulate">Accumulation: ON</button>
+    <button id="clear-map">Clear map</button>
+    <button id="toggle-pose-source">Pose: FAST-LIO2</button>
+    <button id="reset-pose">Reset pose</button>
+  </div>
+</div>
+<div id="viewer"></div>
+
+<!-- roslibjs -->
+<script src="https://cdn.jsdelivr.net/npm/roslib@1.4.1/build/roslib.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.159.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js';
+  import { Line2 } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/Line2.js';
+  import { LineMaterial } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/LineMaterial.js';
+  import { LineGeometry } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/LineGeometry.js';
+
+  // ===================== ROS CONNECTION =====================
+  const statusEl = document.getElementById('status');
+
+  const ros = new ROSLIB.Ros({
+    url: 'ws://10.12.0.101:9090',   // change to your rosbridge host:port
+    reconnect_on_close: true
+  });
+
+  ros.on('connection', function() {
+    statusEl.textContent = 'Connected to rosbridge';
+  });
+
+  ros.on('error', function(error) {
+    console.error('ROS error:', error);
+    statusEl.textContent = 'Error connecting to rosbridge';
+  });
+
+  ros.on('close', function() {
+    statusEl.textContent = 'Disconnected from rosbridge';
+  });
+
+  const cloudTopic = new ROSLIB.Topic({
+    ros: ros,
+    name: '/cloud_registered',                // set to your available PointCloud2 topic
+    messageType: 'sensor_msgs/PointCloud2', // works with rosbridge for ROS2 as well
+    compression: 'cbor',
+    throttle_rate: 0,
+    queue_length: 5
+  });
+
+  // ===================== THREE.JS SETUP =====================
+  const container = document.getElementById('viewer');
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    500.0
+  );
+  camera.position.set(0, 0, 20);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  container.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  // Simple light (needed if you add meshes; points don't really need it)
+  const light = new THREE.DirectionalLight(0xffffff, 0.8);
+  light.position.set(1, 1, 1);
+  scene.add(light);
+  // World references (always visible)
+  const worldAxes = new THREE.AxesHelper(1.0);
+  scene.add(worldAxes);
+
+  // Point cloud geometry
+  const geometry = new THREE.BufferGeometry();
+  let positions = null; // Float32Array
+  let colors = null;    // Float32Array for per-point colors
+  const material = new THREE.PointsMaterial({
+    size: 0.03,          // adjust for scale of your cloud
+    sizeAttenuation: true,
+    vertexColors: true
+  });
+  const points = new THREE.Points(geometry, material);
+  scene.add(points);
+
+  // ===================== GLOBAL MAP ACCUMULATION =====================
+  const mapGroup = new THREE.Group();
+  scene.add(mapGroup);
+  const accumulatedNodes = [];
+  let accumulateEnabled = true;
+  const maxCloudsKept = 200;   // prune old clouds
+  const subsampleStep = 2;     // take every Nth point when accumulating
+  // Pose source: 'FASTLIO' | 'TF' | 'IMU'
+  let poseMode = 'FASTLIO';
+
+  const toggleBtn = document.getElementById('toggle-accumulate');
+  const clearBtn = document.getElementById('clear-map');
+  const poseBtn = document.getElementById('toggle-pose-source');
+  const resetPoseBtn = document.getElementById('reset-pose');
+  toggleBtn.addEventListener('click', function() {
+    accumulateEnabled = !accumulateEnabled;
+    toggleBtn.textContent = 'Accumulation: ' + (accumulateEnabled ? 'ON' : 'OFF');
+  });
+  clearBtn.addEventListener('click', function() {
+    clearMap();
+    clearPath();
+  });
+  poseBtn.addEventListener('click', function() {
+    poseMode = poseMode === 'FASTLIO' ? 'TF' : poseMode === 'TF' ? 'IMU' : 'FASTLIO';
+    poseBtn.textContent = 'Pose: ' + (poseMode === 'FASTLIO' ? 'FAST-LIO2' : (poseMode === 'TF' ? 'TF' : 'IMU'));
+    // Clear accumulated nodes when switching pose source to avoid mixed frames
+    clearMap();
+    clearPath();
+  });
+  resetPoseBtn.addEventListener('click', function() {
+    resetImuPose();
+    clearPath();
+  });
+
+  function clearMap() {
+    while (accumulatedNodes.length > 0) {
+      const node = accumulatedNodes.shift();
+      mapGroup.remove(node);
+      if (node.geometry) node.geometry.dispose();
+      if (node.material) node.material.dispose();
+    }
+  }
+
+  // Pose visualization (axes at current pose) — moved after TF init
+
+
+  // ===================== TF SETUP (optional, requires tf2_web_republisher) =====================
+  const fixedFrame = 'map'; // change to 'odom' or your global frame
+  const tfClient = new ROSLIB.TFClient({
+    ros: ros,
+    fixedFrame: fixedFrame,
+    angularThres: 0.01,
+    transThres: 0.01,
+    rate: 10.0
+  });
+  const latestTfByFrame = {};
+  function subscribeTfForFrame(frameId) {
+    if (!frameId) return;
+    if (latestTfByFrame[frameId] && latestTfByFrame[frameId]._subscribed) return;
+    latestTfByFrame[frameId] = latestTfByFrame[frameId] || {};
+    latestTfByFrame[frameId]._subscribed = true;
+    tfClient.subscribe(frameId, function(tf) {
+      latestTfByFrame[frameId] = tf;
+      latestTfByFrame[frameId]._subscribed = true;
+    });
+  }
+  function normalizeFrameId(frameId) {
+    if (!frameId) return null;
+    return frameId.charAt(0) === '/' ? frameId.slice(1) : frameId;
+  }
+  function tfToMatrix(tf) {
+    const m = new THREE.Matrix4();
+    if (!tf || !tf.translation || !tf.rotation) {
+      m.identity();
+      return m;
+    }
+    const t = new THREE.Vector3(tf.translation.x, tf.translation.y, tf.translation.z);
+    const q = new THREE.Quaternion(tf.rotation.x, tf.rotation.y, tf.rotation.z, tf.rotation.w);
+    m.makeRotationFromQuaternion(q);
+    m.setPosition(t);
+    return m;
+  }
+
+  // Pose visualization (axes at current pose)
+  const baseFrame = 'base_link';
+  subscribeTfForFrame(baseFrame);
+  const poseGroup = new THREE.Group();
+  poseGroup.matrixAutoUpdate = false;
+  scene.add(poseGroup);
+  const poseAxes = new THREE.AxesHelper(5.0);
+  poseGroup.add(poseAxes);
+  // Replace thin AxesHelper with thick mesh-based axes for better visibility
+  poseAxes.visible = false;
+  function makeThickPoseAxes(length = 5.0, radius = 0.15, headLength = 1.2, headRadius = 0.35) {
+    const group = new THREE.Group();
+    const segments = 16;
+    function createAxis(color, axis) {
+      const shaftLen = Math.max(0.001, length - headLength);
+      const shaftGeo = new THREE.CylinderGeometry(radius, radius, shaftLen, segments);
+      const headGeo = new THREE.ConeGeometry(headRadius, headLength, segments);
+      const mat = new THREE.MeshBasicMaterial({ color });
+      const shaft = new THREE.Mesh(shaftGeo, mat);
+      const head = new THREE.Mesh(headGeo, mat);
+      // Orient along requested axis
+      if (axis === 'x') {
+        shaft.rotation.z = -Math.PI / 2;
+        head.rotation.z = -Math.PI / 2;
+        shaft.position.x = shaftLen / 2;
+        head.position.x = shaftLen + headLength / 2;
+      } else if (axis === 'y') {
+        shaft.position.y = shaftLen / 2;
+        head.position.y = shaftLen + headLength / 2;
+      } else if (axis === 'z') {
+        shaft.rotation.x = Math.PI / 2;
+        head.rotation.x = Math.PI / 2;
+        shaft.position.z = shaftLen / 2;
+        head.position.z = shaftLen + headLength / 2;
+      }
+      const axisGroup = new THREE.Group();
+      axisGroup.add(shaft);
+      axisGroup.add(head);
+      return axisGroup;
+    }
+    group.add(createAxis(0xff0000, 'x')); // X - red
+    group.add(createAxis(0x00ff00, 'y')); // Y - green
+    group.add(createAxis(0x0000ff, 'z')); // Z - blue
+    return group;
+  }
+  const poseAxesThick = makeThickPoseAxes(5.0, 0.18, 1.4, 0.4);
+  poseGroup.add(poseAxesThick);
+
+  // Small car model at the origin of the pose axes
+  function makeSimpleCar() {
+    const car = new THREE.Group();
+    const bodyLength = 1.2;
+    const bodyHeight = 0.35;
+    const bodyWidth  = 0.65;
+    const bodyGeom = new THREE.BoxGeometry(bodyLength, bodyHeight, bodyWidth);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2266cc, metalness: 0.1, roughness: 0.7 });
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    car.add(body);
+
+    const wheelSize = { x: 0.22, y: 0.22, z: 0.12 };
+    const wheelGeom = new THREE.BoxGeometry(wheelSize.x, wheelSize.y, wheelSize.z);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.0, roughness: 0.9 });
+    function wheel(px, py, pz) {
+      const w = new THREE.Mesh(wheelGeom, wheelMat);
+      w.position.set(px, py, pz);
+      return w;
+    }
+    const xOff = bodyLength * 0.5 - wheelSize.x * 0.6;
+    const zOff = bodyWidth  * 0.5 - wheelSize.z * 0.6;
+    const yOff = -bodyHeight * 0.5 + wheelSize.y * 0.5;
+    car.add(wheel( xOff, yOff,  zOff));
+    car.add(wheel(-xOff, yOff,  zOff));
+    car.add(wheel( xOff, yOff, -zOff));
+    car.add(wheel(-xOff, yOff, -zOff));
+    return car;
+  }
+  const carModel = makeSimpleCar();
+  poseGroup.add(carModel);
+
+  // ===================== PATH VISUALIZATION =====================
+  const pathMaterial = new LineMaterial({
+    color: 0xff9933,
+    linewidth: 4,
+    worldUnits: false,
+  });
+  pathMaterial.resolution.set(window.innerWidth, window.innerHeight);
+  const pathGeometry = new LineGeometry();
+  let pathLine = new Line2(pathGeometry, pathMaterial);
+  scene.add(pathLine);
+  let pathPositions = []; // flat array [x,y,z, x,y,z, ...]
+  const minPathDistance = 0.05; // meters
+  const maxPathPoints = 20000;
+  const tmpPathPos = new THREE.Vector3();
+  function clearPath() {
+    pathPositions = [];
+    if (pathPositions.length >= 6) {
+      pathGeometry.setPositions(pathPositions);
+      pathLine.computeLineDistances();
+    } else {
+      pathLine.visible = false;
+    }
+  }
+  function appendPathFromMatrix(m) {
+    m.decompose(tmpPathPos, new THREE.Quaternion(), new THREE.Vector3());
+    let okToAppend = false;
+    if (pathPositions.length === 0) {
+      okToAppend = true;
+    } else {
+      const n = pathPositions.length / 3;
+      const j = (n - 1) * 3;
+      const dx = tmpPathPos.x - pathPositions[j];
+      const dy = tmpPathPos.y - pathPositions[j + 1];
+      const dz = tmpPathPos.z - pathPositions[j + 2];
+      if (dx * dx + dy * dy + dz * dz >= minPathDistance * minPathDistance) {
+        okToAppend = true;
+      }
+    }
+    if (okToAppend) {
+      pathPositions.push(tmpPathPos.x, tmpPathPos.y, tmpPathPos.z);
+      if (pathPositions.length > maxPathPoints * 3) {
+        pathPositions.splice(0, (pathPositions.length - maxPathPoints * 3));
+      }
+      if (pathPositions.length >= 6) {
+        pathLine.visible = true;
+        pathGeometry.setPositions(pathPositions);
+        pathLine.computeLineDistances();
+      }
+    }
+  }
+
+  // ===================== FAST-LIO2 ODOMETRY (nav_msgs/Odometry) =====================
+  // Configure per your setup; common topics:
+  // Fast-LIO2: '/Odometry', '/fast_lio/odometry', '/odometry'
+  const fastLioOdometryTopics = [
+    '/Odometry',
+    '/odometry',
+    '/fast_lio/odometry',
+    '/fastlio/odometry',
+    '/lio/odometry',
+    '/odom'
+  ];
+  let latestFastLio = null; // { parent: string, child: string, matrix: THREE.Matrix4 }
+  function poseToMatrix(pose) {
+    const m = new THREE.Matrix4();
+    const t = pose.position || pose.translation || { x: 0, y: 0, z: 0 };
+    const q = pose.orientation || pose.rotation || { x: 0, y: 0, z: 0, w: 1 };
+    const quat = new THREE.Quaternion(q.x, q.y, q.z, q.w);
+    const vec = new THREE.Vector3(t.x, t.y, t.z);
+    m.makeRotationFromQuaternion(quat);
+    m.setPosition(vec);
+    return m;
+  }
+  function subscribeFastLioTopic(name) {
+    const topic = new ROSLIB.Topic({
+      ros: ros,
+      name,
+      messageType: 'nav_msgs/Odometry'
+    });
+    topic.subscribe(function(msg) {
+      const parent = normalizeFrameId(msg.header && msg.header.frame_id ? msg.header.frame_id : fixedFrame);
+      const child = normalizeFrameId(msg.child_frame_id || 'base_link');
+      latestFastLio = {
+        parent,
+        child,
+        matrix: poseToMatrix(msg.pose.pose)
+      };
+      // Ensure TF updates for the FAST-LIO child for relative transform computation
+      if (child) subscribeTfForFrame(child);
+    });
+  }
+  fastLioOdometryTopics.forEach(subscribeFastLioTopic);
+  // If your LiDAR is not mounted at the FAST-LIO child frame, define a static extrinsic here:
+  // e.g., lidar relative to base_link. By default identity.
+  const lidarExtrinsicFromFastLioChild = new THREE.Matrix4(); // identity
+
+  // ===================== IMU INTEGRATION (sensor_msgs/Imu) =====================
+  // Using your IMU topic to integrate pose (naive integration; expect drift)
+  const imuTopicName = '/unilidar/imu';
+  const imuTopic = new ROSLIB.Topic({
+    ros: ros,
+    name: imuTopicName,
+    messageType: 'sensor_msgs/Imu'
+  });
+  let imuFrameId = null;
+  let imuOrientation = new THREE.Quaternion();     // world orientation of IMU
+  let imuVelocity = new THREE.Vector3(0, 0, 0);    // world velocity
+  let imuPosition = new THREE.Vector3(0, 0, 0);    // world position
+  let lastImuTimeSec = null;
+  const gravityMs2 = 9.80665;
+  const imuMatrix = new THREE.Matrix4();
+  const tmpVec = new THREE.Vector3();
+  function resetImuPose() {
+    imuOrientation.set(0, 0, 0, 1);
+    imuVelocity.set(0, 0, 0);
+    imuPosition.set(0, 0, 0);
+    lastImuTimeSec = null;
+  }
+  function stampToSec(stamp) {
+    if (!stamp) return null;
+    if (typeof stamp.secs === 'number') {
+      return stamp.secs + (stamp.nsecs || 0) / 1e9;
+    }
+    if (typeof stamp.sec === 'number') {
+      return stamp.sec + (stamp.nanosec || 0) / 1e9;
+    }
+    return null;
+  }
+  imuTopic.subscribe(function(msg) {
+    const t = stampToSec(msg.header && msg.header.stamp) ?? (performance.now() / 1000);
+    const dt = lastImuTimeSec != null ? Math.max(0, Math.min(0.1, t - lastImuTimeSec)) : 0;
+    lastImuTimeSec = t;
+    imuFrameId = msg.header && msg.header.frame_id ? (msg.header.frame_id.charAt(0) === '/' ? msg.header.frame_id.slice(1) : msg.header.frame_id) : imuFrameId;
+
+    // Orientation: prefer provided quaternion if valid
+    if (msg.orientation && (msg.orientation.w || msg.orientation.x || msg.orientation.y || msg.orientation.z)) {
+      imuOrientation.set(msg.orientation.x || 0, msg.orientation.y || 0, msg.orientation.z || 0, msg.orientation.w || 1);
+      imuOrientation.normalize();
+    } else if (dt > 0 && msg.angular_velocity) {
+      // Integrate gyro if orientation not provided
+      const wx = msg.angular_velocity.x || 0;
+      const wy = msg.angular_velocity.y || 0;
+      const wz = msg.angular_velocity.z || 0;
+      const halfDt = 0.5 * dt;
+      const dq = new THREE.Quaternion(wx * halfDt, wy * halfDt, wz * halfDt, 0);
+      dq.multiply(imuOrientation);
+      imuOrientation.x += dq.x;
+      imuOrientation.y += dq.y;
+      imuOrientation.z += dq.z;
+      imuOrientation.w += dq.w;
+      imuOrientation.normalize();
+    }
+
+    // Integrate linear acceleration to position (very naive; drift expected)
+    if (dt > 0 && msg.linear_acceleration) {
+      tmpVec.set(msg.linear_acceleration.x || 0, msg.linear_acceleration.y || 0, msg.linear_acceleration.z || 0);
+      // Transform IMU accel to world frame
+      tmpVec.applyQuaternion(imuOrientation);
+      // Gravity compensation; assume world +Z is up (adjust if different)
+      tmpVec.z -= gravityMs2;
+      // Integrate velocity and position
+      imuVelocity.addScaledVector(tmpVec, dt);
+      // Dampen velocity to limit drift explosion
+      const damping = Math.exp(-dt * 0.5);
+      imuVelocity.multiplyScalar(damping);
+      imuPosition.addScaledVector(imuVelocity, dt);
+    }
+
+    // Build IMU world matrix
+    imuMatrix.makeRotationFromQuaternion(imuOrientation);
+    imuMatrix.setPosition(imuPosition);
+  });
+  // Static extrinsic: transform from LiDAR frame to IMU frame
+  // Adjust if your LiDAR is not co-located with the IMU. Identity by default.
+  const lidarExtrinsicFromImu = new THREE.Matrix4(); // identity
+
+  // ===================== POINTCLOUD2 DECODING =====================
+  function base64ToUint8Array(b64) {
+    const binary = atob(b64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function decodePointCloud2(msg) {
+    const width = msg.width;
+    const height = msg.height;
+    const pointStep = msg.point_step;
+    const isBigEndian = msg.is_bigendian;
+    const littleEndian = !isBigEndian;
+
+    let N = width * height;
+    if (!msg.data) {
+      return;
+    }
+
+    // msg.data can be base64 string (default rosbridge), Array, Uint8Array, ArrayBuffer, or nested {data: ...}
+    let bytes;
+    if (typeof msg.data === 'string') {
+      // base64 from rosbridge
+      bytes = base64ToUint8Array(msg.data);
+    } else if (msg.data instanceof Uint8Array) {
+      bytes = msg.data;
+    } else if (Array.isArray(msg.data)) {
+      bytes = new Uint8Array(msg.data);
+    } else if (msg.data instanceof ArrayBuffer) {
+      bytes = new Uint8Array(msg.data);
+    } else if (msg.data && msg.data.buffer instanceof ArrayBuffer) {
+      bytes = new Uint8Array(msg.data.buffer, msg.data.byteOffset || 0, msg.data.byteLength || undefined);
+    } else if (msg.data && typeof msg.data === 'object' && ('data' in msg.data)) {
+      const inner = msg.data.data;
+      if (typeof inner === 'string') {
+        bytes = base64ToUint8Array(inner);
+      } else if (Array.isArray(inner)) {
+        bytes = new Uint8Array(inner);
+      } else if (inner instanceof Uint8Array) {
+        bytes = inner;
+      } else if (inner instanceof ArrayBuffer) {
+        bytes = new Uint8Array(inner);
+      }
+    } else {
+      console.warn('Unknown data format in PointCloud2');
+      return;
+    }
+
+    if (!bytes) {
+      console.warn('Unable to normalize PointCloud2 data to Uint8Array');
+      return;
+    }
+
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    // Find offsets for x, y, z
+    let offsetX = null, offsetY = null, offsetZ = null;
+    msg.fields.forEach(f => {
+      if (f.name === 'x') offsetX = f.offset;
+      if (f.name === 'y') offsetY = f.offset;
+      if (f.name === 'z') offsetZ = f.offset;
+    });
+
+    if (offsetX === null || offsetY === null || offsetZ === null) {
+      console.warn('PointCloud2 does not contain x,y,z fields');
+      return;
+    }
+    // Validate offsets
+    if (offsetX >= pointStep || offsetY >= pointStep || offsetZ >= pointStep) {
+      console.warn('PointCloud2 field offsets exceed point_step');
+      return;
+    }
+    // Derive available points from buffer length
+    if (pointStep <= 0) {
+      console.warn('Invalid point_step in PointCloud2');
+      return;
+    }
+    const bytesLen = bytes.byteLength ?? bytes.length ?? 0;
+    const availablePoints = Math.floor(bytesLen / pointStep);
+    if (!Number.isFinite(availablePoints) || availablePoints <= 0) {
+      console.warn('PointCloud2 has no available points from data buffer');
+      return;
+    }
+    if (!Number.isFinite(N) || N <= 0 || N > availablePoints) {
+      N = availablePoints;
+    }
+
+    // Allocate / resize position and color buffers if needed
+    if (!positions || positions.length !== N * 3) {
+      positions = new Float32Array(N * 3);
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    }
+    if (!colors || colors.length !== N * 3) {
+      colors = new Float32Array(N * 3);
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }
+
+    // Fill Float32Array with xyz
+    const maxNeeded = Math.max(offsetX, offsetY, offsetZ) + 4;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const base = i * pointStep;
+      const j = i * 3;
+      if (base + maxNeeded > bytesLen) {
+        // Out of bounds; clamp remaining to zeros
+        positions[j] = 0;
+        positions[j + 1] = 0;
+        continue;
+      }
+      let x = dv.getFloat32(base + offsetX, littleEndian);
+      let y = dv.getFloat32(base + offsetY, littleEndian);
+      let z = dv.getFloat32(base + offsetZ, littleEndian);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        x = 0; y = 0; z = 0;
+      }
+      positions[j]     = x;
+      positions[j + 1] = y;
+      positions[j + 2] = z;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+
+    geometry.attributes.position.needsUpdate = true;
+    // Fill colors based on Z height (blue→cyan→green→yellow→red)
+    const range = Math.max(1e-6, maxZ - minZ);
+    function zToRGB(z) {
+      const t = Math.min(1, Math.max(0, (z - minZ) / range));
+      if (t < 0.25) {
+        const k = t / 0.25;       // blue -> cyan
+        return [0, k, 1];
+      } else if (t < 0.5) {
+        const k = (t - 0.25) / 0.25; // cyan -> green
+        return [0, 1, 1 - k];
+      } else if (t < 0.75) {
+        const k = (t - 0.5) / 0.25;  // green -> yellow
+        return [k, 1, 0];
+      } else {
+        const k = (t - 0.75) / 0.25; // yellow -> red
+        return [1, 1 - k, 0];
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      const j = i * 3;
+      const z = positions[j + 2];
+      const [r, g, b] = zToRGB(z);
+      colors[j] = r;
+      colors[j + 1] = g;
+      colors[j + 2] = b;
+    }
+    geometry.attributes.color.needsUpdate = true;
+    // Safeguard: only compute if finite values exist
+    let hasFinite = false;
+    for (let k = 0; k < positions.length; k++) {
+      if (Number.isFinite(positions[k])) { hasFinite = true; break; }
+    }
+    if (hasFinite) {
+      geometry.computeBoundingSphere();
+    }
+    // Auto-center view on first cloud
+    if (!decodePointCloud2._centeredOnce && geometry.boundingSphere && geometry.boundingSphere.radius > 0) {
+      const c = geometry.boundingSphere.center;
+      controls.target.set(c.x, c.y, c.z);
+      const desiredDistance = Math.max(5, geometry.boundingSphere.radius * 3);
+      const dir = new THREE.Vector3(0, 0, 1);
+      camera.position.copy(c).addScaledVector(dir, desiredDistance);
+      camera.near = Math.max(0.01, geometry.boundingSphere.radius * 0.001);
+      camera.far = Math.max(500, geometry.boundingSphere.radius * 10);
+      camera.updateProjectionMatrix();
+      decodePointCloud2._centeredOnce = true;
+    }
+  }
+
+  // ===================== SUBSCRIBE TO POINTCLOUD2 =====================
+  // simple throttle so we don't re-render too often
+  let lastUpdate = 0;
+  const minIntervalMs = 0; // no client-side throttle; rely on rosbridge/throttle_rate
+
+  cloudTopic.subscribe(function(msg) {
+    const now = performance.now();
+    if (now - lastUpdate < minIntervalMs) return;
+    lastUpdate = now;
+
+    statusEl.textContent = 'Receiving: ' + msg.width * msg.height + ' points';
+    decodePointCloud2(msg);
+
+    // Accumulate current frame into global map (placed using TF if available)
+    if (accumulateEnabled && positions && positions.length > 0) {
+      // Determine transform for this cloud
+      const frameIdRaw = msg.header && msg.header.frame_id ? msg.header.frame_id : null;
+      const frameId = normalizeFrameId(frameIdRaw);
+      if (frameId) {
+        subscribeTfForFrame(frameId);
+      }
+      let worldMatrix = new THREE.Matrix4().identity();
+
+      // If cloud is already in the fixed frame (map), place directly
+      if (frameId && frameId === fixedFrame) {
+        worldMatrix.identity();
+      // Otherwise choose world placement based on pose mode
+      } else if (poseMode === 'FASTLIO' && latestFastLio) {
+        // If cloud frame equals FAST-LIO child (e.g., base_link or lidar), use FAST-LIO matrix
+        if (!frameId || frameId === latestFastLio.child) {
+          worldMatrix.copy(latestFastLio.matrix).multiply(lidarExtrinsicFromFastLioChild);
+        } else {
+          // Try TF fallback if frames differ
+          const tfForFrame = latestTfByFrame[frameId] || null;
+          worldMatrix = tfToMatrix(tfForFrame);
+        }
+      } else if (poseMode === 'TF') {
+        // TF-based placement
+        const tfForFrame = frameId ? latestTfByFrame[frameId] : null;
+        worldMatrix = tfToMatrix(tfForFrame);
+      } else if (poseMode === 'IMU') {
+        // IMU-based placement (naive integration). Use if frames match; otherwise TF fallback.
+        if (!frameId || (imuFrameId && frameId === imuFrameId)) {
+          worldMatrix.copy(imuMatrix).multiply(lidarExtrinsicFromImu);
+        } else {
+          const tfForFrame = latestTfByFrame[frameId] || null;
+          worldMatrix = tfToMatrix(tfForFrame);
+        }
+      } else {
+        // Fallback to identity if nothing available
+        worldMatrix.identity();
+      }
+      // Refine FAST-LIO placement if TF for child and cloud are both available
+      if (poseMode === 'FASTLIO' && latestFastLio && frameId && frameId !== fixedFrame) {
+        const tfCloud = latestTfByFrame[frameId];
+        const tfChild = latestTfByFrame[latestFastLio.child];
+        if (tfCloud && tfChild) {
+          const world_T_cloud_tf = tfToMatrix(tfCloud);
+          const world_T_child_tf = tfToMatrix(tfChild);
+          const child_T_cloud = new THREE.Matrix4().copy(world_T_child_tf).invert().multiply(world_T_cloud_tf);
+          worldMatrix.copy(latestFastLio.matrix).multiply(child_T_cloud);
+        } else if (!tfCloud && !tfChild && latestFastLio.child && frameId === latestFastLio.child) {
+          worldMatrix.copy(latestFastLio.matrix).multiply(lidarExtrinsicFromFastLioChild);
+        }
+      }
+
+      // Subsample and clone current positions with colors
+      const totalPoints = positions.length / 3;
+      const step = Math.max(1, subsampleStep);
+      const kept = Math.floor(totalPoints / step);
+      const accPositions = new Float32Array(kept * 3);
+      const accColors = new Float32Array(kept * 3);
+      // Find Z range for color mapping
+      let minZ = Infinity, maxZ = -Infinity;
+      for (let i = 0; i < totalPoints; i += step) {
+        const j = i * 3;
+        const z = positions[j + 2];
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+      const zRange = Math.max(1e-6, maxZ - minZ);
+      function zToRGB(z) {
+        const t = Math.min(1, Math.max(0, (z - minZ) / zRange));
+        if (t < 0.25) {
+          const k = t / 0.25;
+          return [0, k, 1];
+        } else if (t < 0.5) {
+          const k = (t - 0.25) / 0.25;
+          return [0, 1, 1 - k];
+        } else if (t < 0.75) {
+          const k = (t - 0.5) / 0.25;
+          return [k, 1, 0];
+        } else {
+          const k = (t - 0.75) / 0.25;
+          return [1, 1 - k, 0];
+        }
+      }
+      let w = 0;
+      for (let i = 0; i < totalPoints; i += step) {
+        const j = i * 3;
+        accPositions[w] = positions[j];
+        accPositions[w + 1] = positions[j + 1];
+        accPositions[w + 2] = positions[j + 2];
+        const [r, g, b] = zToRGB(positions[j + 2]);
+        accColors[w] = r;
+        accColors[w + 1] = g;
+        accColors[w + 2] = b;
+        w += 3;
+      }
+      const geomCopy = new THREE.BufferGeometry();
+      geomCopy.setAttribute('position', new THREE.BufferAttribute(accPositions, 3));
+      geomCopy.setAttribute('color', new THREE.BufferAttribute(accColors, 3));
+      const matCopy = new THREE.PointsMaterial({
+        size: material.size,
+        sizeAttenuation: true,
+        vertexColors: true
+      });
+      const node = new THREE.Points(geomCopy, matCopy);
+      node.matrixAutoUpdate = false;
+      node.matrix.copy(worldMatrix);
+      mapGroup.add(node);
+      accumulatedNodes.push(node);
+
+      // Prune old
+      while (accumulatedNodes.length > maxCloudsKept) {
+        const old = accumulatedNodes.shift();
+        mapGroup.remove(old);
+        if (old.geometry) old.geometry.dispose();
+        if (old.material) old.material.dispose();
+      }
+    }
+  });
+
+  // ===================== RENDER LOOP =====================
+  function animate() {
+    requestAnimationFrame(animate);
+    // Update pose marker based on pose mode
+    let poseMatrix = null;
+    if (poseMode === 'FASTLIO' && latestFastLio) {
+      poseMatrix = latestFastLio.matrix;
+    } else if (poseMode === 'TF') {
+      const tfBase = latestTfByFrame[baseFrame];
+      if (tfBase) poseMatrix = tfToMatrix(tfBase);
+    } else if (poseMode === 'IMU') {
+      poseMatrix = imuMatrix;
+    }
+    if (poseMatrix) {
+      poseGroup.visible = true;
+      poseGroup.matrix.copy(poseMatrix);
+      // Update path continuously from current pose
+      appendPathFromMatrix(poseMatrix);
+    } else {
+      poseGroup.visible = false;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // ===================== HANDLE RESIZE =====================
+  window.addEventListener('resize', function() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    pathMaterial.resolution.set(w, h);
+  });
+</script>
+</body>
+</html>
