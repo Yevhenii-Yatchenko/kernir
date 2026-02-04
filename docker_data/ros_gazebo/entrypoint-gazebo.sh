@@ -23,6 +23,8 @@ elif [ "$1" = "gazebo" ]; then
     shift
     WORLD=${1:-$WORLD}
     echo "Starting Gazebo with world: $WORLD"
+    # Launch camera viewer in background
+    rosrun image_view image_view image:=/camera/image_raw &
     exec roslaunch gazebo_ros empty_world.launch world_name:=$WORLD verbose:=true
 # Default: just run whatever command was passed
 else
