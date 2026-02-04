@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-velodyne-gazebo-plugins \
     # Husky robot Gazebo plugin
     ros-noetic-husky-gazebo \
+    # rosbridge for WebSocket access to ROS topics
+    ros-noetic-rosbridge-suite \
     && rm -rf /var/lib/apt/lists/*
 
 # Create python symlink for legacy scripts

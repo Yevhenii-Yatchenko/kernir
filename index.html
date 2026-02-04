@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ROS2 PointCloud2 Viewer</title>
+  <title>ROS PointCloud2 Viewer</title>
   <style>
     html, body {
       margin: 0;
@@ -38,7 +38,7 @@
 </head>
 <body>
 <div id="info">
-  <div>ROS2 PointCloud2 Viewer</div>
+  <div>ROS PointCloud2 Viewer</div>
   <div id="status">Connecting to rosbridge…</div>
   <div style="margin-top:6px;">
     <button id="toggle-accumulate">Accumulation: ON</button>
@@ -71,7 +71,7 @@
   const statusEl = document.getElementById('status');
 
   const ros = new ROSLIB.Ros({
-    url: 'ws://10.12.0.101:9090',   // change to your rosbridge host:port
+    url: 'ws://localhost:9090',
     reconnect_on_close: true
   });
 
@@ -90,11 +90,10 @@
 
   const cloudTopic = new ROSLIB.Topic({
     ros: ros,
-    name: '/cloud_registered',                // set to your available PointCloud2 topic
-    messageType: 'sensor_msgs/PointCloud2', // works with rosbridge for ROS2 as well
-    compression: 'cbor',
-    throttle_rate: 0,
-    queue_length: 5
+    name: '/velodyne_points',
+    messageType: 'sensor_msgs/PointCloud2',
+    throttle_rate: 100,
+    queue_length: 1
   });
 
   // ===================== THREE.JS SETUP =====================
@@ -399,7 +398,7 @@
 
   // ===================== IMU INTEGRATION (sensor_msgs/Imu) =====================
   // Using your IMU topic to integrate pose (naive integration; expect drift)
-  const imuTopicName = '/unilidar/imu';
+  const imuTopicName = '/imu/data';
   const imuTopic = new ROSLIB.Topic({
     ros: ros,
     name: imuTopicName,
