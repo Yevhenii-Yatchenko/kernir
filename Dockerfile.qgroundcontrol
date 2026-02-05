@@ -1,0 +1,40 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Dependencies for AppImage + GUI
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    fuse \
+    libfuse2 \
+    libxcb-xinerama0 \
+    libxkbcommon-x11-0 \
+    libxcb-cursor0 \
+    libpulse0 \
+    libspeechd2 \
+    # OpenGL / EGL
+    libopengl0 \
+    libglx0 \
+    libgl1 \
+    libegl1 \
+    libgles2 \
+    libxcb-glx0 \
+    libxcb-shape0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-render-util0 \
+    # GStreamer for video streaming
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-libav \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user (AppImage prefers non-root)
+RUN useradd -ms /bin/bash qgc && mkdir -p /opt/qgroundcontrol && chown qgc:qgc /opt/qgroundcontrol
+USER qgc
+WORKDIR /home/qgc
+
+# Entrypoint mounted from host handles download + run
+CMD ["/opt/qgroundcontrol/entrypoint.sh"]
