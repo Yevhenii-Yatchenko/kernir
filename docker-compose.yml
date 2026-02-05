@@ -2,7 +2,7 @@ services:
   ros-gazebo:
     build:
       context: .
-      dockerfile: Dockerfile.gazebo
+      dockerfile: Dockerfiles/Dockerfile.gazebo
     image: ros-gazebo
     container_name: ros_gazebo
     stdin_open: true
@@ -47,7 +47,7 @@ services:
   ardupilot:
     build:
       context: .
-      dockerfile: Dockerfile.ardupilot
+      dockerfile: Dockerfiles/Dockerfile.ardupilot
     image: ardupilot-sitl
     container_name: ardupilot_sitl
     stdin_open: true
@@ -79,7 +79,7 @@ services:
   fast-livo:
     build:
       context: .
-      dockerfile: Dockerfile.fastlivo
+      dockerfile: Dockerfiles/Dockerfile.fastlivo
     image: fast-livo2
     container_name: fast_livo
     stdin_open: true
@@ -108,7 +108,7 @@ services:
   qgroundcontrol:
     build:
       context: .
-      dockerfile: Dockerfile.qgroundcontrol
+      dockerfile: Dockerfiles/Dockerfile.qgroundcontrol
     image: qgroundcontrol
     container_name: qgroundcontrol
     stdin_open: true
