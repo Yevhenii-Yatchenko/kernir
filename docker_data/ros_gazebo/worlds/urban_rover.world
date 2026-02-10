@@ -1,0 +1,113 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="urban_rover">
+
+    <!-- Physics settings for ArduPilot synchronization -->
+    <physics type="ode">
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>100</iters>
+          <sor>1.0</sor>
+        </solver>
+        <constraints>
+          <cfm>0.0</cfm>
+          <erp>0.9</erp>
+          <contact_max_correcting_vel>0.1</contact_max_correcting_vel>
+          <contact_surface_layer>0.0</contact_surface_layer>
+        </constraints>
+      </ode>
+      <real_time_update_rate>0</real_time_update_rate>
+      <max_step_size>0.0025</max_step_size>
+    </physics>
+
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <!-- === Buildings around rover spawn (auto-downloaded from OSRF) === -->
+
+    <!-- Gas station: 20m ahead -->
+    <include>
+      <uri>model://gas_station</uri>
+      <pose>20 0 0 0 0 0</pose>
+    </include>
+
+    <!-- House: 15m left -->
+    <include>
+      <uri>model://house_1</uri>
+      <pose>0 15 0 0 0 0</pose>
+    </include>
+
+    <!-- House: behind-right -->
+    <include>
+      <uri>model://house_2</uri>
+      <pose>-15 -10 0 0 0 0</pose>
+    </include>
+
+    <!-- House: far ahead-left -->
+    <include>
+      <uri>model://house_3</uri>
+      <pose>25 20 0 0 0 1.5708</pose>
+    </include>
+
+    <!-- Fast food: right side -->
+    <include>
+      <uri>model://fast_food</uri>
+      <pose>10 -15 0 0 0 0</pose>
+    </include>
+
+    <!-- Dumpster: nearby obstacle -->
+    <include>
+      <uri>model://dumpster</uri>
+      <pose>5 3 0 0 0 0.3</pose>
+    </include>
+
+    <!-- Lamp posts along a "road" -->
+    <include>
+      <name>lamp_1</name>
+      <uri>model://lamp_post</uri>
+      <pose>10 5 0 0 0 0</pose>
+    </include>
+    <include>
+      <name>lamp_2</name>
+      <uri>model://lamp_post</uri>
+      <pose>20 5 0 0 0 0</pose>
+    </include>
+
+    <!-- Jersey barriers forming a path -->
+    <include>
+      <name>barrier_1</name>
+      <uri>model://jersey_barrier</uri>
+      <pose>5 -5 0 0 0 0</pose>
+    </include>
+    <include>
+      <name>barrier_2</name>
+      <uri>model://jersey_barrier</uri>
+      <pose>10 -5 0 0 0 0</pose>
+    </include>
+    <include>
+      <name>barrier_3</name>
+      <uri>model://jersey_barrier</uri>
+      <pose>15 -5 0 0 0 0</pose>
+    </include>
+
+    <!-- Construction cones -->
+    <include>
+      <name>cone_1</name>
+      <uri>model://construction_cone</uri>
+      <pose>3 -2 0 0 0 0</pose>
+    </include>
+    <include>
+      <name>cone_2</name>
+      <uri>model://construction_cone</uri>
+      <pose>7 -3 0 0 0 0</pose>
+    </include>
+
+    <!-- Spawn rover at origin -->
+    <include>
+      <uri>model://simple_rover</uri>
+      <pose>0 0 0.5 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>

@@ -38,7 +38,7 @@
 
     <!-- IMU Sensor -->
     <link name="imu_link">
-      <pose>0 0 0.1 0 0 0</pose>
+      <pose>0 0 0.1877 0 0 0</pose>
       <inertial>
         <mass>0.01</mass>
         <inertia>
@@ -51,7 +51,7 @@
         </inertia>
       </inertial>
       <sensor name="imu_sensor" type="imu">
-        <pose>0 0 0 3.141593 0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <always_on>1</always_on>
         <update_rate>200.0</update_rate>
         <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
@@ -71,9 +71,9 @@
       <child>imu_link</child>
     </joint>
 
-    <!-- Forward-Facing Camera for FAST-LIVO2 -->
+    <!-- Camera for FAST-LIVO2 (facing -X = driving direction) -->
     <link name="camera_link">
-      <pose>0.32 0 0.12 0 0 0</pose>
+      <pose>-0.32 0 0.12 0 0 3.141593</pose>
       <inertial>
         <mass>0.1</mass>
         <inertia>
@@ -111,8 +111,8 @@
         <camera>
           <horizontal_fov>1.5707963</horizontal_fov>
           <image>
-            <width>640</width>
-            <height>480</height>
+            <width>1280</width>
+            <height>960</height>
             <format>R8G8B8</format>
           </image>
           <clip>
@@ -210,17 +210,17 @@
       <sensor type="gpu_ray" name="velodyne_vlp16">
         <pose>0 0 0 0 0 0</pose>
         <visualize>false</visualize>
-        <update_rate>10</update_rate>
+        <update_rate>20</update_rate>
         <ray>
           <scan>
             <horizontal>
-              <samples>1875</samples>
+              <samples>3750</samples>
               <resolution>1</resolution>
-              <min_angle>-3.141592653589793</min_angle>
-              <max_angle>3.141592653589793</max_angle>
+              <min_angle>-3.1415926</min_angle>
+              <max_angle>3.1415926</max_angle>
             </horizontal>
             <vertical>
-              <samples>16</samples>
+              <samples>64</samples>
               <resolution>1</resolution>
               <min_angle>-0.261799</min_angle>
               <max_angle>0.261799</max_angle>
@@ -234,15 +234,15 @@
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
-            <stddev>0.008</stddev>
+            <stddev>0</stddev>
           </noise>
         </ray>
         <plugin name="gazebo_ros_velodyne_laser" filename="libgazebo_ros_velodyne_gpu_laser.so">
           <topicName>/velodyne_points</topicName>
           <frameName>velodyne</frameName>
-          <min_range>0.9</min_range>
+          <min_range>0.3</min_range>
           <max_range>130.0</max_range>
-          <gaussianNoise>0.008</gaussianNoise>
+          <gaussianNoise>0</gaussianNoise>
         </plugin>
       </sensor>
     </link>

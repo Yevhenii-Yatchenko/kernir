@@ -179,14 +179,74 @@ WORLD=/root/gazebo_worlds/your_world.world
 ### FAST-LIVO2 Tuning
 
 Edit files in `docker_data/fast-livo/config/`:
-- `gazebo_vlp16.yaml` - Topic names, extrinsics, algorithm params
+- `gazebo_vlp16.yaml` - Topic names, extrinsics, algorithm params (fully commented)
 - `camera_gazebo.yaml` - Camera intrinsics (focal length, distortion)
+
+### FAST-LIVO2 Modes
+
+Mode is determined automatically by `img_en` and `imu_en` in `gazebo_vlp16.yaml`:
+
+| `img_en` | `lidar_en` | `imu_en` | Mode | Description |
+|----------|------------|----------|------|-------------|
+| 0 | 1 | true | ONLY_LIO | LiDAR + IMU (default, recommended) |
+| 1 | 1 | true | LIVO | LiDAR + IMU + Camera (requires correct extrinsics) |
+| 0 | 1 | false | ONLY_LO | LiDAR only (no IMU, less robust) |
+
+**LIVO mode note:** `/cloud_registered` only publishes points that project into the camera FOV (~90° forward). The rest are discarded. With wrong camera-LiDAR extrinsics, zero points get published. Use ONLY_LIO for full 360° clouds.
+
+**`/Laser_map` topic:** Advertised but never published in current FAST-LIVO2 code — it's a dead topic. Use `/cloud_registered` with browser accumulation instead.
+
+### Sensor Placement & Extrinsics
+
+IMU and LiDAR are co-located in the rover model (`model.sdf`) at the same position (`z=0.1877`) with no rotation offset. This allows identity extrinsics in FAST-LIVO2 config.
+
+**Critical:** The IMU sensor in `model.sdf` must NOT have a rotation (e.g., `<pose>0 0 0 3.141593 0 0</pose>` would flip Y/Z axes). FAST-LIVO2 expects Z-up (ENU frame). A flipped IMU causes severe map distortion because gravity initialization points the wrong way.
+
+Sensor positions in `model.sdf` (relative to `base_link`):
+
+| Sensor | Link | Position (x, y, z) | Notes |
+|--------|------|---------------------|-------|
+| IMU | `imu_link` | 0, 0, 0.1877 | Co-located with LiDAR |
+| LiDAR | `velodyne` | 0, 0, 0.1877 | 360° VLP-16 scan head |
+| Camera | `camera_link` | 0.32, 0, 0.12 | Forward-facing, 90° FOV |
+
+Extrinsics in `gazebo_vlp16.yaml`:
+
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `extrinsic_T` | `[0, 0, 0]` | LiDAR-to-IMU translation (co-located) |
+| `extrinsic_R` | `[1,0,0, 0,1,0, 0,0,1]` | LiDAR-to-IMU rotation (identity) |
+| `Pcl` | `[0.32, 0, -0.0677]` | Camera-to-LiDAR translation |
+| `Rcl` | `[1,0,0, 0,1,0, 0,0,1]` | Camera-to-LiDAR rotation (identity) |
+
+If you move sensors apart, recalculate extrinsics: `extrinsic_T = LiDAR_pos - IMU_pos` (in IMU frame), `extrinsic_R` = rotation from LiDAR frame to IMU frame.
+
+### LiDAR Tuning (model.sdf)
+
+VLP-16 parameters in `model.sdf` under `<sensor type="gpu_ray">`:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `update_rate` | 20 | Scan frequency (Hz). Real VLP-16: 5/10/20 |
+| `horizontal/samples` | 1875 | Points per ring (360° sweep) |
+| `vertical/samples` | 16 | Number of beams. 16=VLP-16, 32/64 for denser |
+| `vertical/min_angle` | -0.261799 | Lower FOV bound (rad). -15° for VLP-16 |
+| `vertical/max_angle` | 0.261799 | Upper FOV bound (rad). +15° for VLP-16 |
+| `range/min` | 0.3 | Minimum range (m) |
+| `range/max` | 131.0 | Maximum range (m) |
+| `noise/stddev` | 0 | Range noise (m). Real VLP-16: ~0.003-0.008 |
+| `plugin/min_range` | 0.9 | Plugin min range — should match `range/min` |
+| `plugin/gaussianNoise` | 0 | Additional plugin noise (avoid double-noising) |
+
+**Note:** `vertical/samples` must match `scan_line` in `gazebo_vlp16.yaml`.
 
 ## Key Configuration Files
 
 | File | Purpose |
 |------|---------|
-| `docker_data/fast-livo/config/gazebo_vlp16.yaml` | FAST-LIVO2 sensor config, extrinsics |
+| `docker_data/fast-livo/config/gazebo_vlp16.yaml` | FAST-LIVO2 sensor config, extrinsics, algorithm params |
+| `docker_data/fast-livo/config/camera_gazebo.yaml` | Camera intrinsics for LIVO mode |
 | `docker_data/ardupilot_sitl/params/*.parm` | ArduPilot vehicle parameters |
 | `docker_data/ros_gazebo/models/simple_rover/model.sdf` | Robot model, sensors, physics |
 | `docker_data/ros_gazebo/worlds/baylands_rover.world` | Simulation environment |
+| `monitor_topics.py` | Live topic monitor (run from host, uses `.venv`) |

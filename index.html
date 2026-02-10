@@ -45,6 +45,7 @@
     <button id="clear-map">Clear map</button>
     <button id="toggle-pose-source">Pose: FAST-LIO2</button>
     <button id="reset-pose">Reset pose</button>
+    <button id="reset-view">Reset view</button>
   </div>
 </div>
 <div id="viewer"></div>
@@ -61,11 +62,13 @@
 </script>
 
 <script type="module">
+  console.log('=== ROS PointCloud2 Viewer starting ===');
   import * as THREE from 'three';
   import { OrbitControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js';
   import { Line2 } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/Line2.js';
   import { LineMaterial } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/LineMaterial.js';
   import { LineGeometry } from 'https://unpkg.com/three@0.159.0/examples/jsm/lines/LineGeometry.js';
+  console.log('Three.js imports loaded');
 
   // ===================== ROS CONNECTION =====================
   const statusEl = document.getElementById('status');
@@ -77,6 +80,7 @@
 
   ros.on('connection', function() {
     statusEl.textContent = 'Connected to rosbridge';
+    console.log('ROS connected to ws://localhost:9090');
   });
 
   ros.on('error', function(error) {
@@ -85,16 +89,19 @@
   });
 
   ros.on('close', function() {
+    console.log('ROS connection closed');
     statusEl.textContent = 'Disconnected from rosbridge';
   });
 
   const cloudTopic = new ROSLIB.Topic({
     ros: ros,
-    name: '/velodyne_points',
+    // name: '/cloud_registered',
+    name: '/cloud_registered',
     messageType: 'sensor_msgs/PointCloud2',
     throttle_rate: 100,
     queue_length: 1
   });
+  console.log('Cloud topic created for /cloud_registered');
 
   // ===================== THREE.JS SETUP =====================
   const container = document.getElementById('viewer');
@@ -170,6 +177,10 @@
   resetPoseBtn.addEventListener('click', function() {
     resetImuPose();
     clearPath();
+  });
+  document.getElementById('reset-view').addEventListener('click', function() {
+    decodePointCloud2._centeredOnce = false;
+    console.log('View reset - will re-center on next cloud');
   });
 
   function clearMap() {
@@ -355,12 +366,7 @@
   // Configure per your setup; common topics:
   // Fast-LIO2: '/Odometry', '/fast_lio/odometry', '/odometry'
   const fastLioOdometryTopics = [
-    '/Odometry',
-    '/odometry',
-    '/fast_lio/odometry',
-    '/fastlio/odometry',
-    '/lio/odometry',
-    '/odom'
+    '/aft_mapped_to_init',
   ];
   let latestFastLio = null; // { parent: string, child: string, matrix: THREE.Matrix4 }
   function poseToMatrix(pose) {
@@ -639,8 +645,10 @@
     if (hasFinite) {
       geometry.computeBoundingSphere();
     }
-    // Auto-center view on first cloud
+    // Auto-center view on first cloud (reset flag to force re-center when needed)
+    // Debug: force re-center by setting _centeredOnce = false in console
     if (!decodePointCloud2._centeredOnce && geometry.boundingSphere && geometry.boundingSphere.radius > 0) {
+      console.log('Auto-centering camera on cloud:', geometry.boundingSphere);
       const c = geometry.boundingSphere.center;
       controls.target.set(c.x, c.y, c.z);
       const desiredDistance = Math.max(5, geometry.boundingSphere.radius * 3);
@@ -658,13 +666,33 @@
   let lastUpdate = 0;
   const minIntervalMs = 0; // no client-side throttle; rely on rosbridge/throttle_rate
 
+  console.log('Subscribing to /cloud_registered...');
   cloudTopic.subscribe(function(msg) {
+    console.log('>>> Message received from /cloud_registered');
     const now = performance.now();
     if (now - lastUpdate < minIntervalMs) return;
     lastUpdate = now;
 
-    statusEl.textContent = 'Receiving: ' + msg.width * msg.height + ' points';
+    const numPoints = msg.width * msg.height;
+    const frameId = msg.header && msg.header.frame_id ? msg.header.frame_id : 'unknown';
+    statusEl.textContent = 'Receiving: ' + numPoints + ' points (frame: ' + frameId + ')';
+    console.log('Cloud received:', { numPoints, frameId, pointStep: msg.point_step, fields: msg.fields.map(f => f.name) });
     decodePointCloud2(msg);
+
+    // Debug: log bounding info after decode
+    if (positions && positions.length > 0) {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (let i = 0; i < Math.min(positions.length, 3000); i += 3) {
+        if (positions[i] < minX) minX = positions[i];
+        if (positions[i] > maxX) maxX = positions[i];
+        if (positions[i+1] < minY) minY = positions[i+1];
+        if (positions[i+1] > maxY) maxY = positions[i+1];
+        if (positions[i+2] < minZ) minZ = positions[i+2];
+        if (positions[i+2] > maxZ) maxZ = positions[i+2];
+      }
+      console.log('Point bounds:', { minX, maxX, minY, maxY, minZ, maxZ });
+      console.log('Camera at:', camera.position, 'Looking at:', controls.target);
+    }
 
     // Accumulate current frame into global map (placed using TF if available)
     if (accumulateEnabled && positions && positions.length > 0) {

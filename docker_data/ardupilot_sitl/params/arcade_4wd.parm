@@ -38,8 +38,15 @@ EK3_SRC1_POSXY 0      # None (GPS disabled for indoor sim)
 EK3_SRC1_VELXY 0
 EK3_SRC1_POSZ 1       # Baro
 EK3_SRC1_VELZ 0
-EK3_SRC1_YAW 1        # Compass
+EK3_SRC1_YAW 8        # GSF (Gaussian Sum Filter, no compass needed)
 
+# Compass disabled — IMU rotation was removed for FAST-LIVO2 compatibility,
+# which changes the frame ArduPilot sees. Not needed for sim anyway.
+COMPASS_ENABLE 0
+COMPASS_USE 0
+COMPASS_USE2 0
+COMPASS_USE3 0
 
 ARMING_REQUIRE 1
+ARMING_CHECK 0         # Disable pre-arm checks (simulation only)
 MOT_SAFE_DISARM 1

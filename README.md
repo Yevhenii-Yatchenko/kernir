@@ -35,13 +35,7 @@ git clone https://github.com/yourusername/kernir.git
 cd kernir
 
 # Build containers (first run takes ~10-15 minutes)
-docker compose build
-
-# Start simulation
-./docker.sh start
-
-# In another terminal, start ArduPilot with console
-./docker.sh ardupilot
+./docker.sh up
 ```
 
 Once running:

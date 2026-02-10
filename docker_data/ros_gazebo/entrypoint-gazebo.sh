@@ -13,7 +13,7 @@ export GAZEBO_RESOURCE_PATH=/root/gazebo_worlds:$GAZEBO_RESOURCE_PATH
 # Plugin is installed to system path during docker build
 
 # Default world
-WORLD=/root/gazebo_worlds/baylands_rover.world
+WORLD=/root/gazebo_worlds/urban_rover.world
 
 # If first argument is "bash", open shell
 if [ "$1" = "bash" ]; then

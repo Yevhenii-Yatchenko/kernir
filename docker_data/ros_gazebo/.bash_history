@@ -95,3 +95,7 @@ ll
 cd ..
 ll
 top
+rostopic list
+source /opt/ros/noetic/setup.bash
+rostopic list
+rostopic list | grep Odometry
