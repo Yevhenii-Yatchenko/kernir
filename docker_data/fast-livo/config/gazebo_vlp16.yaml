@@ -2,7 +2,7 @@ common:
   img_topic: "/camera/image_raw"
   lid_topic: "/velodyne_points"
   imu_topic: "/imu/data"
-  img_en: 1
+  img_en: 0
   lidar_en: 1
   ros_driver_bug_fix: false
 
@@ -25,9 +25,9 @@ time_offset:
   exposure_time_init: 0.0
 
 preprocess:
-  point_filter_num: 2
-  filter_size_surf: 0.3                  # 0.05 overflows VoxelGrid, 0.15 borderline. 0.3 is safe.
-  lidar_type: 2 # VELO16 (Velodyne VLP-16)
+  point_filter_num: 1
+  filter_size_surf: 0.1
+  lidar_type: 3
   scan_line: 64
   blind: 0.5
 
@@ -46,17 +46,17 @@ vio:
 imu:
   imu_en: true
   imu_int_frame: 30
-  acc_cov: 0.1                           # FAST-LIVO2 default — process noise, not just sensor noise
-  gyr_cov: 0.1                           # too low → filter rejects LiDAR corrections → divergence
-  b_acc_cov: 0.0001                      # default
-  b_gyr_cov: 0.0001                      # default
+  acc_cov: 0.001
+  gyr_cov: 0.001
+  b_acc_cov: 0.00001
+  b_gyr_cov: 0.00001
 
 lio:
   max_iterations: 5                      # default (8 was overkill)
   dept_err: 0.02
-  beam_err: 0.01
+  beam_err: 0.03
   min_eigen_value: 0.0025               # default — 0.001 accepted too-thin planes
-  voxel_size: 0.5                        # default — 0.25 was too fine, high memory
+  voxel_size: 0.25
   max_layer: 2                           # default
   max_points_num: 50
   layer_init_num: [5, 5, 5, 5, 5]
