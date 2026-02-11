@@ -22,20 +22,23 @@ if [ "$1" = "bash" ]; then
 elif [ "$1" = "gazebo" ]; then
     shift
     WORLD=${1:-$WORLD}
-    echo "Starting Gazebo with world: $WORLD"
-    # Start Gazebo in background (it starts roscore)
-    roslaunch gazebo_ros empty_world.launch world_name:=$WORLD verbose:=true &
-    GAZEBO_PID=$!
+    echo "Starting gzserver with world: $WORLD"
+    # Launch gzserver only — physics runs at full speed, never throttled by GUI
+    roslaunch gazebo_ros empty_world.launch world_name:=$WORLD verbose:=true gui:=false &
+    GZSERVER_PID=$!
     # Wait for ROS master to be ready
     echo "Waiting for ROS master..."
     until rostopic list > /dev/null 2>&1; do sleep 1; done
     echo "ROS master ready"
+    # Launch gzclient as a separate process — can lag/lose focus without affecting physics
+    echo "Starting gzclient (separate process, won't affect physics)"
+    gzclient &
     # Launch rosbridge WebSocket server (port 9090) in background
     roslaunch rosbridge_server rosbridge_websocket.launch &
     # Launch camera viewer in background
     rosrun image_view image_view image:=/camera/image_raw &
-    # Wait for Gazebo to exit
-    wait $GAZEBO_PID
+    # Wait for gzserver to exit
+    wait $GZSERVER_PID
 # Default: just run whatever command was passed
 else
     exec "$@"
