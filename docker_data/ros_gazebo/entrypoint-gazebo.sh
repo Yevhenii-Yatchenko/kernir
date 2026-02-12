@@ -12,8 +12,29 @@ export GAZEBO_MODEL_PATH=/root/gazebo_models:$GAZEBO_MODEL_PATH
 export GAZEBO_RESOURCE_PATH=/root/gazebo_worlds:$GAZEBO_RESOURCE_PATH
 # Plugin is installed to system path during docker build
 
+# --- Lazy-load external repos (cloned on first run, persisted via mount) ---
+REPOS_DIR="/cache/repos"
+
+# AWS RoboMaker Racetrack
+if [ ! -d "$REPOS_DIR/aws-robomaker-racetrack-world" ]; then
+    echo "Cloning aws-robomaker-racetrack-world..."
+    git clone --depth 1 --branch ros1 https://github.com/aws-robotics/aws-robomaker-racetrack-world.git "$REPOS_DIR/aws-robomaker-racetrack-world"
+else
+    echo "Using cached aws-robomaker-racetrack-world"
+fi
+export GAZEBO_MODEL_PATH=$REPOS_DIR/aws-robomaker-racetrack-world/models:$GAZEBO_MODEL_PATH
+# Racetrack meshes use file://models/... URIs, so repo root must be in RESOURCE_PATH
+export GAZEBO_RESOURCE_PATH=$REPOS_DIR/aws-robomaker-racetrack-world:$GAZEBO_RESOURCE_PATH
+
 # Default world
-WORLD=/root/gazebo_worlds/urban_rover.world
+# WORLD=/root/gazebo_worlds/cafe_rover.world
+WORLD=/root/gazebo_worlds/racetrack_rover.world
+# WORLD=/root/gazebo_worlds/willowgarage_rover.world
+# WORLD=/root/gazebo_worlds/baylands_rover.world
+
+# WORLD=/root/gazebo_worlds/urban_rover.world
+# WORLD=/root/gazebo_worlds/flat_rover.world
+
 
 # If first argument is "bash", open shell
 if [ "$1" = "bash" ]; then

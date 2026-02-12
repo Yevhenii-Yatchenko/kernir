@@ -29,6 +29,8 @@ services:
       - ./docker_data/ros_gazebo/worlds:/root/gazebo_worlds:ro
       # Persist bash history
       - ./docker_data/ros_gazebo/.bash_history:/root/.bash_history
+      # Cache repos (cloned on first run, persisted across rebuilds)
+      - ./docker_data/ros_gazebo/repos:/cache/repos
       # Persist Gazebo cache (faster startup after first run)
       - ./docker_data/ros_gazebo/.gazebo:/root/.gazebo
       # Custom entrypoint
