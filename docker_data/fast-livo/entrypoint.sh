@@ -47,6 +47,12 @@ if [ -f /root/catkin_ws/devel/setup.bash ]; then
     source /root/catkin_ws/devel/setup.bash
 fi
 
+# Start LiDAR timestamp fix relay (Gazebo instantaneous scan -> proper timestamps)
+if [ -f "/config/lidar_timestamp_fix.py" ]; then
+    echo "Starting lidar_timestamp_fix relay..."
+    python3 /config/lidar_timestamp_fix.py &
+fi
+
 # Start pose->odometry converter in background (if script exists)
 if [ -f "/config/pose_to_odom.py" ]; then
     echo "Starting pose_to_odom converter..."
