@@ -240,11 +240,11 @@
       <sensor type="gpu_ray" name="velodyne_vlp16">
         <pose>0 0 0 0 0 0</pose>
         <visualize>false</visualize>
-        <update_rate>20</update_rate>
+        <update_rate>40</update_rate>
         <ray>
           <scan>
             <horizontal>
-              <samples>3750</samples>
+              <samples>1875</samples>
               <resolution>1</resolution>
               <min_angle>-3.1415926</min_angle>
               <max_angle>3.1415926</max_angle>
