@@ -114,6 +114,9 @@ services:
       - ./docker_data/fast-livo/repos:/cache/repos
       # Custom configs (optional overrides)
       - ./docker_data/fast-livo/config:/config:ro
+      # Debug utilities and logs
+      - ./docker_data/fast-livo/debug_utils:/root/debug_utils:ro
+      - ./docker_data/fast-livo/logs:/root/logs
       # Persist bash history
       - ./docker_data/fast-livo/.bash_history:/root/.bash_history
     entrypoint: ["/entrypoint.sh"]

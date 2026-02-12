@@ -59,4 +59,13 @@ if [ -f "/config/pose_to_odom.py" ]; then
     python3 /config/pose_to_odom.py &
 fi
 
+# Start debug monitors (log to /root/logs/)
+if [ -d "/root/debug_utils" ] && [ -d "/root/logs" ]; then
+    mkdir -p /root/logs
+    echo "Starting debug monitors (logs in /root/logs/)..."
+    python3 /root/debug_utils/check_undistortion.py /root/logs/undistortion.log &
+    python3 /root/debug_utils/check_drift.py /root/logs/drift.log &
+    python3 /root/debug_utils/compare_gz_odom.py /root/logs/gz_vs_odom.log &
+fi
+
 exec "$@"
