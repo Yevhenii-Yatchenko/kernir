@@ -114,6 +114,9 @@ services:
       - ./docker_data/fast-livo/entrypoint.sh:/entrypoint.sh:ro
       # Cache repos (cloned on first run, persisted across rebuilds)
       - ./docker_data/fast-livo/repos:/cache/repos
+      # Persist catkin build artifacts (avoids rebuild on container recreate)
+      - ./docker_data/fast-livo/catkin_ws/build:/root/catkin_ws/build
+      - ./docker_data/fast-livo/catkin_ws/devel:/root/catkin_ws/devel
       # Custom configs (optional overrides)
       - ./docker_data/fast-livo/config:/config:ro
       # Debug utilities and logs

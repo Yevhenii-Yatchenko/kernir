@@ -37,7 +37,7 @@ fi
 # Build catkin workspace if not already built (check for actual binary)
 if [ ! -f "/root/catkin_ws/devel/lib/fast_livo/fastlivo_mapping" ]; then
     echo "Building catkin workspace..."
-    rm -rf /root/catkin_ws/devel /root/catkin_ws/build
+    rm -rf /root/catkin_ws/build/* /root/catkin_ws/devel/*
     cd /root/catkin_ws
     catkin_make -j$(nproc)
 fi
