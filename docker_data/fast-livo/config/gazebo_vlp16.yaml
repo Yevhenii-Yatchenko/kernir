@@ -2,7 +2,7 @@ common:
   img_topic: "/camera/image_raw"
   lid_topic: "/velodyne_points"
   imu_topic: "/imu/data"
-  img_en: 0
+  img_en: 1
   lidar_en: 1
   ros_driver_bug_fix: false
 
@@ -27,8 +27,8 @@ time_offset:
 preprocess:
   point_filter_num: 1
   filter_size_surf: 0.1
-  lidar_type: 3
-  scan_line: 64
+  lidar_type: 2
+  scan_line: 16
   blind: 0.5
 
 vio:
@@ -62,8 +62,8 @@ lio:
   layer_init_num: [5, 5, 5, 5, 5]
 
 local_map:
-  map_sliding_en: false                   # limit map to a window around robot — prevents unbounded RAM growth
-  half_map_size: 50                      # 50m half-size = 100m×100m sliding window
+  map_sliding_en: true                   # limit map to a window around robot — prevents unbounded RAM growth
+  half_map_size: 20                      # 50m half-size = 100m×100m sliding window
   sliding_thresh: 8
 
 uav:
@@ -71,7 +71,7 @@ uav:
   gravity_align_en: true
 
 publish:
-  dense_map_en: true
+  dense_map_en: false
   pub_effect_point_en: false
   pub_plane_en: false
   pub_scan_num: 1

@@ -250,7 +250,7 @@
               <max_angle>3.1415926</max_angle>
             </horizontal>
             <vertical>
-              <samples>64</samples>
+              <samples>16</samples>
               <resolution>1</resolution>
               <min_angle>-0.261799</min_angle>
               <max_angle>0.261799</max_angle>
@@ -559,7 +559,7 @@
         <cmd_max>100</cmd_max>
         <cmd_min>-100</cmd_min>
         <jointName>front_left_wheel_joint</jointName>
-        <multiplier>100</multiplier>
+        <multiplier>10</multiplier>
       </control>
 
       <!-- Front Right Wheel (channel 2 = right side) -->
@@ -574,7 +574,7 @@
         <cmd_max>100</cmd_max>
         <cmd_min>-100</cmd_min>
         <jointName>front_right_wheel_joint</jointName>
-        <multiplier>100</multiplier>
+        <multiplier>10</multiplier>
       </control>
 
       <!-- Back Left Wheel (channel 0 = left side, same as front left) -->
@@ -589,7 +589,7 @@
         <cmd_max>100</cmd_max>
         <cmd_min>-100</cmd_min>
         <jointName>back_left_wheel_joint</jointName>
-        <multiplier>100</multiplier>
+        <multiplier>10</multiplier>
       </control>
 
       <!-- Back Right Wheel (channel 2 = right side, same as front right) -->
@@ -604,7 +604,7 @@
         <cmd_max>100</cmd_max>
         <cmd_min>-100</cmd_min>
         <jointName>back_right_wheel_joint</jointName>
-        <multiplier>100</multiplier>
+        <multiplier>10</multiplier>
       </control>
 
     </plugin>
