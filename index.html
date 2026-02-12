@@ -366,7 +366,7 @@
   // Configure per your setup; common topics:
   // Fast-LIO2: '/Odometry', '/fast_lio/odometry', '/odometry'
   const fastLioOdometryTopics = [
-    '/aft_mapped_to_init',
+    '/Odometry',
   ];
   let latestFastLio = null; // { parent: string, child: string, matrix: THREE.Matrix4 }
   function poseToMatrix(pose) {
